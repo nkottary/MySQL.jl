@@ -235,19 +235,6 @@ function populate_row!(df, nfields, result, row)
     end
 end
 
-"""
-Returns a dataframe containing the data in `result`.
-"""
-function mysql_result_to_dataframe(result)
-    nrows = mysql_num_rows(result)
-    df = mysql_init_dataframe(mysql_metadata(result), nrows)
-    nfields = length(df)
-    for row = 1:nrows
-        populate_row!(df, nfields, mysql_fetch_row(result), row)
-    end
-    return df
-end
-
 mysql_binary_interpret_field(buf, mysqltype) =
     mysql_binary_interpret_field(buf, mysql_get_ctype(mysqltype))
 
@@ -324,28 +311,6 @@ end
 Get a bind array for binding to results.
 """
 mysql_bind_array(meta::Vector{MYSQL_FIELD}) = mysql_bind_array(MySQLMetadata(meta))
-
-"""
-Initialize a dataframe for prepared statement results.
-"""
-mysql_init_dataframe(meta::Array{MYSQL_FIELD}, nrows) =
-    mysql_init_dataframe(MySQLMetadata(meta), nrows)
-mysql_init_dataframe(meta, nrows) =
-    DataFrame(meta.jtypes, map(Symbol, meta.names), Int64(nrows))
-
-function mysql_result_to_dataframe(hndl::MySQLHandle)
-    meta = mysql_metadata(hndl.stmtptr)
-    bindres = mysql_bind_array(meta)
-    mysql_stmt_bind_result(hndl, bindres)
-    mysql_stmt_store_result(hndl)
-    nrows = mysql_stmt_num_rows(hndl)
-    df = mysql_init_dataframe(meta, nrows)
-    for ridx = 1:nrows
-        mysql_stmt_fetch(hndl)
-        stmt_populate_row!(df, ridx, bindres)
-    end
-    return df
-end
 
 function mysql_get_result_as_tuples(hndl::MySQLHandle)
     meta = mysql_metadata(hndl)

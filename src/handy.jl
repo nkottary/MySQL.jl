@@ -128,29 +128,20 @@ end
 A function for executing queries and getting results.
 
 In the case of multi queries this function returns an array of number of affected
- rows and DataFrames. The number of affected rows correspond to the
- non-SELECT queries and the DataFrames for the SELECT queries in the
+ rows and Tuples. The number of affected rows correspond to the
+ non-SELECT queries and the Tuples for the SELECT queries in the
  multi-query.
 
 In the case of non-multi queries this function returns either the number of affected
- rows for non-SELECT queries or a DataFrame for SELECT queries.
-
-By default, returns SELECT query results as DataFrames.
- Set `opformat` to `MYSQL_TUPLES` to get results as tuples.
+ rows for non-SELECT queries or a Tuple for SELECT queries.
 """
-function mysql_execute(hndl, command; opformat=MYSQL_DATA_FRAME)
+function mysql_execute(hndl, command)
     hndl.mysqlptr == C_NULL && throw(MySQLInterfaceError("Method called with null connection."))
     mysql_query(hndl.mysqlptr, command) != 0 && throw(MySQLInternalError(hndl))
 
     data = Any[]
 
-    if opformat == MYSQL_DATA_FRAME
-        convfunc = mysql_result_to_dataframe
-    elseif opformat == MYSQL_TUPLES
-        convfunc = mysql_get_result_as_tuples
-    else
-        throw(MySQLInterfaceError("Invalid output format: $opformat"))
-    end
+    convfunc = mysql_get_result_as_tuples
 
     while true
         result = mysql_store_result(hndl.mysqlptr)
@@ -183,17 +174,11 @@ end
 
 Execute and get results for prepared statements.  A statement must be prepared with `mysql_stmt_prepare` before calling this function.
 """
-function mysql_execute(hndl::MySQLHandle; opformat=MYSQL_DATA_FRAME)
+function mysql_execute(hndl::MySQLHandle)
     mysql_stmt_execute(hndl)
     naff = mysql_stmt_affected_rows(hndl)
     naff != typemax(typeof(naff)) && return naff        # Not a SELECT query
-    if opformat == MYSQL_DATA_FRAME
-        return mysql_result_to_dataframe(hndl)
-    elseif opformat == MYSQL_TUPLES
-        return mysql_get_result_as_tuples(hndl)
-    else
-        throw(MySQLInterfaceError("Invalid output format: $opformat"))
-    end
+    return mysql_get_result_as_tuples(hndl)
 end
 
 """
@@ -211,7 +196,7 @@ function mysql_execute(hndl::MySQLHandle, typs, values;
 end
 
 for func = (:mysql_stmt_num_rows, :mysql_stmt_affected_rows,
-            :mysql_stmt_result_to_dataframe, :mysql_stmt_error)
+            :mysql_stmt_error)
     eval(quote
         function ($func)(hndl::MySQLHandle, args...)
             hndl.stmtptr == C_NULL && throw(MySQLInterfaceError($(string(func)) * " called with NULL statement handle."))

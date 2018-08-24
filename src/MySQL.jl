@@ -2,7 +2,6 @@ __precompile__()
 
 module MySQL
     using Compat
-    using DataFrames
 
     include("config.jl")
     include("consts.jl")
